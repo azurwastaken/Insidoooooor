@@ -16,25 +16,25 @@ const PUBLIC_MAINNET_RPC : &str = "https://starknet-mainnet.public.blastapi.io";
 
 async fn get_token_name(contract_address : FieldElement) {
     let rpc = Url::parse(PUBLIC_MAINNET_RPC).unwrap();
-        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc)));
+    let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(rpc)));
 
-        let selector = selector!("name");
+    let selector = selector!("name");
 
-        let calldata = vec![];
+    let calldata = vec![];
 
-        let result = provider
-            .call(
-                FunctionCall {
-                    contract_address,
-                    entry_point_selector: selector,
-                    calldata,
-                },
-                BlockId::Tag(BlockTag::Pending),
-            )
-            .await;
+    let result = provider
+        .call(
+            FunctionCall {
+                contract_address,
+                entry_point_selector: selector,
+                calldata,
+            },
+            BlockId::Tag(BlockTag::Pending),
+        )
+        .await;
 
-        let Ok(res) = result else {todo!()};
-        println!("Token {0:#?} => {1:#x}", parse_cairo_short_string(&res[0]).unwrap(), contract_address);
+    let res = result.unwrap();
+    println!("💰 Token {0:#?} => {1:#x}", parse_cairo_short_string(&res[0]).unwrap(), contract_address);
 }
 
 #[tokio::main]
@@ -47,34 +47,38 @@ async fn main() {
     // set provider and get last pending block
     let provider = SequencerGatewayProvider::starknet_alpha_mainnet();
     let mut latest_block_hash :FieldElement = Default::default();
+    let mut latest_block_len : usize = 1;
     while true {
         let latest_block = provider.get_block_with_tx_hashes(BlockId::Tag(BlockTag::Pending)).await;
         if let Ok(block) = latest_block {
             if let MaybePendingBlockWithTxHashes::PendingBlock(ref inner_block) = block {
-                println!("parent hash : {:#x}",inner_block.parent_hash);
                 if latest_block_hash == inner_block.parent_hash {
-                    println!("Same block as the old one, waiting 30 seconds ...");
-                    thread::sleep(Duration::from_secs(30));
-                    continue;
+                    println!("{:#x} : Same block as the old one, tx amount : {}",inner_block.parent_hash, inner_block.transactions.len());
+                    thread::sleep(Duration::from_secs(5));
+                } else {
+                    latest_block_len = 1;
                 }
                 
     
-                for tx_hash in &inner_block.transactions {
+                for tx_hash in &inner_block.transactions[(latest_block_len - 1)..] {
                     // Fetch the full transaction details for each hash
                     // Note: Replace `get_transaction` with the actual method name
                     let transaction_details = provider.get_transaction(*tx_hash).await;
                     // println!("{transaction_details:#?}");
-                    if let Ok(transac) = transaction_details {
-                        if let Some(TransactionType::InvokeFunction(invoke_func_trans)) = transac.r#type {
+                    if let Ok(ref transac) = transaction_details {
+                        if let Some(TransactionType::InvokeFunction(ref invoke_func_trans)) = transac.r#type {
                             // println!("{0:#?}", invoke_func_trans.calldata);
                             if invoke_func_trans.calldata.contains(&jediswap_amm_swap){
-                                // println!("tx hash : {:#x}",*tx_hash);
+                            // if invoke_func_trans.calldata.contains(&add_liquidity){
                                 for (index, data) in invoke_func_trans.calldata.iter().enumerate() {
-                                    // println!("{0:#x}", data);
                                     if *data == add_liquidity {
-                                        println!("Jediswap => Add Liquidity spotted :");
-                                        get_token_name(invoke_func_trans.calldata[index + 2]).await;
-                                        get_token_name(invoke_func_trans.calldata[index + 3]).await;
+                                        
+                                        println!("🚨 Jediswap 🚨 => Add Liquidity spotted :");
+                                        println!("📝 tx hash : {:#x}",*tx_hash);
+                                        // println!("data : {:#?}",invoke_func_trans.calldata);
+
+                                        get_token_name(invoke_func_trans.calldata[invoke_func_trans.calldata.len() - 12]).await;
+                                        get_token_name(invoke_func_trans.calldata[invoke_func_trans.calldata.len() - 11]).await;
                                         println!();
                                         println!();
                                     }
@@ -84,6 +88,7 @@ async fn main() {
                     }
                 }
                 latest_block_hash = inner_block.parent_hash;
+                latest_block_len = inner_block.transactions.len();
             }
         }
     }
