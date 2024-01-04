@@ -3,6 +3,7 @@ use starknet::{
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, SequencerGatewayProvider},
     macros::{selector},
     providers::sequencer::models::TransactionType,
+    core::utils::parse_cairo_short_string,
 };
 
 use std::thread;
@@ -32,7 +33,8 @@ async fn get_token_name(contract_address : FieldElement) {
             )
             .await;
 
-        println!("{:#?}", result);
+        let Ok(res) = result else {todo!()};
+        println!("Token {0:#?} => {1:#x}", parse_cairo_short_string(&res[0]).unwrap(), contract_address);
 }
 
 #[tokio::main]
@@ -73,13 +75,10 @@ async fn main() {
                                         println!("Jediswap => Add Liquidity spotted :");
                                         get_token_name(invoke_func_trans.calldata[index + 2]).await;
                                         get_token_name(invoke_func_trans.calldata[index + 3]).await;
-    
-                                        // println!("token A is : {:#?}", tokenA);
-                                        // println!("token B is : {:#?}", tokenB);
+                                        println!();
+                                        println!();
                                     }
                                 }
-                                // println!();
-                                // println!();
                             }
                         }
                     }
