@@ -34,23 +34,33 @@ fn is_add_liquidity(amm : &FieldElement, add_liquidity : &FieldElement, calldata
 }
 
 async fn get_token_name(contract_address : FieldElement, provider : &Arc<JsonRpcClient<HttpTransport>>) {
-    let selector = selector!("name");
-
-    let calldata = vec![];
-
-    let result = provider
+    let mut result = provider
         .call(
             FunctionCall {
                 contract_address,
-                entry_point_selector: selector,
-                calldata,
+                entry_point_selector: selector!("name"),
+                calldata: vec![],
             },
             BlockId::Tag(BlockTag::Pending),
         )
         .await;
 
-    let res = result.unwrap();
-    println!("💰 Token {0:#?} => {1:#x}", parse_cairo_short_string(&res[0]).unwrap(), contract_address);
+    let name = result.unwrap()[0];
+
+    result = provider
+        .call(
+            FunctionCall {
+                contract_address,
+                entry_point_selector: selector!("symbol"),
+                calldata: vec![],
+            },
+            BlockId::Tag(BlockTag::Pending),
+        )
+        .await;
+
+    let ticker = result.unwrap()[0];
+    
+    println!("💰 Token {:#?} ({:#?}) => {:#x}", parse_cairo_short_string(&ticker).unwrap(), parse_cairo_short_string(&name).unwrap(), contract_address);
 }
 
 pub async fn sniffa(){
