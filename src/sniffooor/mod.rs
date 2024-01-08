@@ -35,27 +35,19 @@ fn is_add_liquidity(amm : &FieldElement, add_liquidity : &FieldElement, calldata
 }
 
 async fn get_missing_tx<T: Chain>(latest_block_len : usize,  chain_handler : T) {
-    let inner_block = chain_handler.get_latest_block().await;
+    let block = chain_handler.get_latest_block().await;
+    let txs = block.get_txs(&chain_handler);
 
-    let (amm, add_liq) = match chain_handler.get_amm_parameter(){
-        (DataType::FieldElement(a),DataType::FieldElement(b)) => (a,b),
-        (_,_) => panic!("Unknown Type"),
-    };
-
-    if inner_block.transactions.len() != latest_block_len {
-        println!("🚨 {:#x} : {} tx missing processing ... 🚨",inner_block.parent_hash, inner_block.transactions.len() - latest_block_len);
-
-    }
-    for txs in &inner_block.transactions[(latest_block_len)..] {
-        let Invoke(V1(tx)) = txs else {continue ;};
-        if is_add_liquidity(&amm, &add_liq, &tx.calldata){
-            println!();
-
-            println!("🚨 Jediswap 🚨 => Add Liquidity MISSED :\n📝 tx hash : {:#x}", tx.transaction_hash);
-            chain_handler.extract_token_from_calldata(tx.calldata[tx.calldata.len() - 12]).await;
-            chain_handler.extract_token_from_calldata(tx.calldata[tx.calldata.len() - 11]).await;
-            
-            println!();
+    if txs.len() != latest_block_len {
+        println!("🚨 {} : {} tx missing processing ... 🚨",block.get_parent_hash(), txs.len() - latest_block_len);
+        for tx in &txs[(latest_block_len)..] {
+            if tx.is_add_liquidity(&chain_handler) {
+                println!();
+                println!("🚨 Jediswap 🚨 => Add Liquidity MISSED :\n📝 tx hash : {:#?}", tx.get_tx_hash());
+                chain_handler.extract_tokens_from_calldata(tx).await;
+                // chain_handler.extract_token_from_calldata(tx).await;
+                println!();
+            }
         }
     }
 }
@@ -64,34 +56,36 @@ pub async fn sniffa(){
     let chain_handler = StarknetChain::new();
     
     // set some flags
-    let mut latest_block_hash :FieldElement = Default::default();
+    let mut latest_block_hash : String = Default::default();
     let mut latest_block_len : usize = 0;
     // infinite loop to snifff
     loop {
         //get_pending_block
-        let inner_block = chain_handler.get_pending_block().await;
-        if latest_block_hash == inner_block.parent_hash {
-            println!("{:#x} : Same block as the old one, tx amount : {}",inner_block.parent_hash, inner_block.transactions.len());
+        let block = chain_handler.get_pending_block().await;
+        let txs = block.get_txs(&chain_handler);
+        if latest_block_hash == block.get_parent_hash() {
+            println!("{} : Same block as the old one, tx amount : {}",block.get_parent_hash(), txs.len());
             thread::sleep(Duration::from_secs(5));
         } else {
             let external_thread = tokio::spawn(get_missing_tx(latest_block_len.clone(), chain_handler.clone()));
+            println!();
             latest_block_len = 0;
         }
-        if latest_block_len > inner_block.transactions.len(){
+        if latest_block_len > txs.len(){
             latest_block_len = 0;
         }
         //parse transaction
-        for txs in &inner_block.transactions[(latest_block_len)..] {
-            let Invoke(V1(tx)) = txs else {continue ;};
-            if is_add_liquidity(&chain_handler.amm_contract, &chain_handler.add_liquidity, &tx.calldata){
+        for tx in &txs[(latest_block_len)..] {
+            // let Invoke(V1(tx)) = txs else {continue ;};
+            if tx.is_add_liquidity(&chain_handler) {
                 println!();
-                println!("🚨 Jediswap 🚨 => Add Liquidity spotted :\n📝 tx hash : {:#x}", tx.transaction_hash);
-                chain_handler.extract_token_from_calldata(tx.calldata[tx.calldata.len() - 12]).await;
-                chain_handler.extract_token_from_calldata(tx.calldata[tx.calldata.len() - 11]).await;
+                println!("🚨 Jediswap 🚨 => Add Liquidity spotted :\n📝 tx hash : {:#?}", tx.get_tx_hash());
+                chain_handler.extract_tokens_from_calldata(tx).await;
+                // chain_handler.extract_token_from_calldata(tx).await;
                 println!();
             }
         }
-        latest_block_hash = inner_block.parent_hash;
-        latest_block_len = inner_block.transactions.len();
+        latest_block_hash = block.get_parent_hash();
+        latest_block_len = txs.len();
     }
 }
