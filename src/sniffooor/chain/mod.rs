@@ -1,9 +1,9 @@
 pub mod strknet;
 // pub mod solana;
-use crate::sniffooor::StarknetChain;
+
 
 use async_trait::async_trait;
-use starknet::core::types::{PendingBlockWithTxs,BlockWithTxs, FieldElement};
+use starknet::core::types::{FieldElement};
 
 type StarknetBlock = starknet::core::types::PendingBlockWithTxs;
 type StarknetLatestBlock = starknet::core::types::BlockWithTxs;
@@ -23,7 +23,7 @@ pub enum Block {
 impl Block {
     pub fn get_current_hash(&self) -> String {
         match self {
-            Block::Starknet(starknet_block) => String::from("PENDING"),
+            Block::Starknet(_starknet_block) => String::from("PENDING"),
             Block::StarknetLatest(starknet_latest_block) => format!("{:#x}",starknet_latest_block.block_hash),
         }
     }
@@ -38,8 +38,8 @@ impl Block {
 
     pub fn get_txs(&self, chain_handler : &dyn Chain) -> Vec<Tx> {
         match self {
-            Block::Starknet(starknet_block) => chain_handler.extract_tx(self),
-            Block::StarknetLatest(starknet_Latest_block) => chain_handler.extract_tx(self),
+            Block::Starknet(_starknet_block) => chain_handler.extract_tx(self),
+            Block::StarknetLatest(_starknet_latest_block) => chain_handler.extract_tx(self),
         }
     }
 }
@@ -51,14 +51,14 @@ pub enum Tx {
 impl Tx {
     pub fn is_add_liquidity(&self, chain_handler : &dyn Chain) -> bool {
         match self {
-            Tx::Starknet(starknetTx) => chain_handler.is_add_liquidity(self),
+            Tx::Starknet(_starknet_tx) => chain_handler.is_add_liquidity(self),
         }
     }
 
     //TODO : maybe return a big int to optimize
     pub fn get_tx_hash(&self) -> String {
         match self {
-            Tx::Starknet(starknetTx) => format!("{:#x}",starknetTx.transaction_hash),
+            Tx::Starknet(starknet_tx) => format!("{:#x}",starknet_tx.transaction_hash),
         }
     }
 }

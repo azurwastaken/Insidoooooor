@@ -1,15 +1,15 @@
 use starknet::{
-    core::types::{BlockId, BlockTag,MaybePendingBlockWithTxs,PendingBlockWithTxs, BlockWithTxs, FieldElement, FunctionCall,Transaction, Transaction::Invoke,InvokeTransaction, InvokeTransaction::V1},
+    core::types::{BlockId, BlockTag,MaybePendingBlockWithTxs, FieldElement, FunctionCall,Transaction,InvokeTransaction},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, SequencerGatewayProvider},
     macros::{selector},
     core::utils::parse_cairo_short_string,
 };
-use std::thread;
-use std::time::Duration;
+
+
 use std::sync::Arc;
 use url::Url;
-use std::any::TypeId;
-use std::any::Any;
+
+
 
 use crate::sniffooor::chain::*;
 use async_trait::async_trait;
@@ -104,14 +104,14 @@ impl Chain for StarknetChain {
 
     //TODO : refacto
     async fn extract_tokens_from_calldata(&self, wrapped_tx : &Tx) -> (Token, Token){
-        let Tx::Starknet(tx) = wrapped_tx else {todo!()};
-        let tokenA_ca = tx.calldata[tx.calldata.len() - 12] ;
-        let tokenB_ca = tx.calldata[tx.calldata.len() - 11];
+        let Tx::Starknet(tx) = wrapped_tx;
+        let token_a_ca = tx.calldata[tx.calldata.len() - 12] ;
+        let token_b_ca = tx.calldata[tx.calldata.len() - 11];
 
         let mut result = self.rpc_provider
         .call(
             FunctionCall {
-                contract_address: tokenA_ca,
+                contract_address: token_a_ca,
                 entry_point_selector: selector!("name"),
                 calldata: vec![],
             },
@@ -123,7 +123,7 @@ impl Chain for StarknetChain {
         result = self.rpc_provider
             .call(
                 FunctionCall {
-                    contract_address: tokenA_ca,
+                    contract_address: token_a_ca,
                     entry_point_selector: selector!("symbol"),
                     calldata: vec![],
                 },
@@ -133,12 +133,12 @@ impl Chain for StarknetChain {
 
         let mut ticker = result.unwrap()[0];
 
-        let tokenA = Token::new(format!("{:#x}",tokenA_ca), parse_cairo_short_string(&ticker).unwrap(), parse_cairo_short_string(&name).unwrap());
+        let token_a = Token::new(format!("{:#x}",token_a_ca), parse_cairo_short_string(&ticker).unwrap(), parse_cairo_short_string(&name).unwrap());
 
         result = self.rpc_provider
         .call(
             FunctionCall {
-                contract_address: tokenB_ca,
+                contract_address: token_b_ca,
                 entry_point_selector: selector!("name"),
                 calldata: vec![],
             },
@@ -150,7 +150,7 @@ impl Chain for StarknetChain {
         result = self.rpc_provider
             .call(
                 FunctionCall {
-                    contract_address: tokenB_ca,
+                    contract_address: token_b_ca,
                     entry_point_selector: selector!("symbol"),
                     calldata: vec![],
                 },
@@ -160,17 +160,17 @@ impl Chain for StarknetChain {
 
         ticker = result.unwrap()[0];
 
-        let tokenB = Token::new(format!("{:#x}",tokenB_ca), parse_cairo_short_string(&ticker).unwrap(), parse_cairo_short_string(&name).unwrap());
+        let token_b = Token::new(format!("{:#x}",token_b_ca), parse_cairo_short_string(&ticker).unwrap(), parse_cairo_short_string(&name).unwrap());
 
-        println!("💰 Token {:#?} ({:#?}) => {:#?}", tokenA.name, tokenA.ticker, tokenA.contract_address);
-        println!("💰 Token {:#?} ({:#?}) => {:#?}", tokenB.name, tokenB.ticker, tokenB.contract_address);
+        println!("💰 Token {:#?} ({:#?}) => {:#?}", token_a.name, token_a.ticker, token_a.contract_address);
+        println!("💰 Token {:#?} ({:#?}) => {:#?}", token_b.name, token_b.ticker, token_b.contract_address);
 
         
-        return(tokenA,tokenB);
+        return(token_a,token_b);
     }
 
     fn is_add_liquidity(&self, wrapped_tx : &Tx) -> bool {
-        let Tx::Starknet(tx) = wrapped_tx else {todo!()};
+        let Tx::Starknet(tx) = wrapped_tx;
         let mut value1_found = false;
         let mut value2_found = false;
         
