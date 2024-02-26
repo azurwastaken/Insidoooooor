@@ -48,7 +48,7 @@ impl StarknetChain {
 #[async_trait]
 impl Chain for StarknetChain {
     async fn get_pending_block(&self) -> Block {
-        let latest_block = self.rpc_providerprovider.get_block_with_txs(BlockId::Tag(BlockTag::Pending)).await;
+        let latest_block = self.rpc_provider.get_block_with_txs(BlockId::Tag(BlockTag::Pending)).await;
         if let Ok(block) = latest_block {
             if let MaybePendingBlockWithTxs::PendingBlock(inner_block) = block {
                 Block::Starknet(inner_block)
